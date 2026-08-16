@@ -1,8 +1,8 @@
 #pragma once
 
 #include <QDateTime>
+#include <QJsonObject>
 #include <QList>
-#include <QSqlDatabase>
 #include <QString>
 #include <QStringList>
 #include <QVector>
@@ -65,8 +65,11 @@ public:
     QList<SearchHit> search(const QVector<double> &queryVector, int topK, QString *error = nullptr) const;
 
 private:
-    bool ensureSchema(QString *error);
-    QSqlDatabase database() const;
+    bool load(QString *error);
+    bool save(QString *error) const;
+    QString filePath() const;
+    QString dataDirectory() const;
 
-    QString m_connectionName;
+    QJsonObject m_data;
 };
+

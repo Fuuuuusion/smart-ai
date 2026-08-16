@@ -1,5 +1,7 @@
 #include "AppSettings.h"
 
+#include "StoragePaths.h"
+
 #include <QSettings>
 #include <QCoreApplication>
 #include <QDir>
@@ -25,8 +27,7 @@ AppSettings *AppSettings::instance()
 AppSettings::AppSettings(QObject *parent)
     : QObject(parent)
 {
-    const QString path = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    m_settings = new QSettings(path + QStringLiteral("/smart-ai.ini"), QSettings::IniFormat, this);
+    m_settings = new QSettings(StoragePaths::settingsFilePath(), QSettings::IniFormat, this);
     load();
 }
 

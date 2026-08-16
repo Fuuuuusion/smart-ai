@@ -1,23 +1,22 @@
 #include "KnowledgeStore.h"
 
 #include "LocalEmbedding.h"
+#include "StoragePaths.h"
 
 #include <algorithm>
-#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QSqlError>
-#include <QSqlQuery>
-#include <QStandardPaths>
-#include <QUuid>
+#include <QSaveFile>
 #include <QVariant>
 
 namespace {
-QString defaultDatabasePath()
+qint64 toLongLong(const QJsonValue &value)
 {
-    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QDir().mkpath(dir);
-    return dir + QStringLiteral("/smart-ai.db");
+    bool ok = false;
+    const qint64 number = value.toVariant().toLongLong(&ok);
+    return ok ? number : -1;
 }
 
 QString vectorToJson(const QVector<double> &vector)
@@ -38,78 +37,90 @@ QVector<double> vectorFromJson(const QString &json)
         result.append(value.toDouble());
     return result;
 }
-}
 
-KnowledgeStore::KnowledgeStore()
-    : m_connectionName(QStringLiteral("smart_ai_knowledge_%1").arg(
-          QUuid::createUuid().toString(QUuid::WithoutBraces)))
+QString documentTitle(const QJsonArray &documents, qint64 documentId)
 {
-}
-
-KnowledgeStore::~KnowledgeStore()
-{
-    if (QSqlDatabase::contains(m_connectionName)) {
-        {
-            QSqlDatabase db = QSqlDatabase::database(m_connectionName, false);
-            if (db.isOpen())
-                db.close();
-        }
-        QSqlDatabase::removeDatabase(m_connectionName);
+    for (const QJsonValue &value : documents) {
+        const QJsonObject object = value.toObject();
+        if (object.value(QStringLiteral("id")).toVariant().toLongLong() == documentId)
+            return object.value(QStringLiteral("title")).toString();
     }
+    return {};
+}
 }
 
-QSqlDatabase KnowledgeStore::database() const
+KnowledgeStore::KnowledgeStore() = default;
+KnowledgeStore::~KnowledgeStore() = default;
+
+QString KnowledgeStore::dataDirectory() const
 {
-    if (!QSqlDatabase::contains(m_connectionName))
-        QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), m_connectionName);
-    return QSqlDatabase::database(m_connectionName, false);
+    return StoragePaths::dataDirectory();
+}
+
+QString KnowledgeStore::filePath() const
+{
+    return StoragePaths::knowledgeFilePath();
 }
 
 bool KnowledgeStore::init(QString *error)
 {
-    QSqlDatabase db = database();
-    if (!db.isOpen()) {
-        db.setDatabaseName(defaultDatabasePath());
-        if (!db.open()) {
-            if (error)
-                *error = db.lastError().text();
-            return false;
-        }
-    }
-    return ensureSchema(error);
+    if (!load(error))
+        return false;
+    return true;
 }
 
-bool KnowledgeStore::ensureSchema(QString *error)
+bool KnowledgeStore::load(QString *error)
 {
-    QSqlDatabase db = database();
-    QSqlQuery query(db);
-    const QStringList statements = {
-        QStringLiteral("PRAGMA journal_mode = WAL;"),
-        QStringLiteral("CREATE TABLE IF NOT EXISTS knowledge_documents ("
-                       "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                       "title TEXT NOT NULL,"
-                       "path TEXT NOT NULL,"
-                       "format TEXT NOT NULL,"
-                       "content TEXT NOT NULL,"
-                       "character_count INTEGER NOT NULL DEFAULT 0,"
-                       "chunk_count INTEGER NOT NULL DEFAULT 0,"
-                       "status TEXT NOT NULL,"
-                       "created_at TEXT NOT NULL);"),
-        QStringLiteral("CREATE TABLE IF NOT EXISTS knowledge_chunks ("
-                       "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                       "document_id INTEGER NOT NULL,"
-                       "chunk_index INTEGER NOT NULL,"
-                       "text TEXT NOT NULL,"
-                       "vector_json TEXT,"
-                       "FOREIGN KEY(document_id) REFERENCES knowledge_documents(id) ON DELETE CASCADE);"),
-        QStringLiteral("CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_document ON knowledge_chunks(document_id, chunk_index);"),
-    };
-    for (const QString &statement : statements) {
-        if (!query.exec(statement)) {
-            if (error)
-                *error = query.lastError().text();
-            return false;
-        }
+    QFile file(filePath());
+    if (!file.exists()) {
+        m_data = QJsonObject();
+        m_data.insert(QStringLiteral("documents"), QJsonArray());
+        m_data.insert(QStringLiteral("chunks"), QJsonArray());
+        m_data.insert(QStringLiteral("nextDocumentId"), 1);
+        m_data.insert(QStringLiteral("nextChunkId"), 1);
+        return save(error);
+    }
+
+    if (!file.open(QIODevice::ReadOnly)) {
+        if (error)
+            *error = file.errorString();
+        return false;
+    }
+    const QByteArray bytes = file.readAll();
+    file.close();
+
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(bytes, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        if (error)
+            *error = parseError.errorString();
+        return false;
+    }
+    m_data = document.object();
+    if (!m_data.contains(QStringLiteral("documents")))
+        m_data.insert(QStringLiteral("documents"), QJsonArray());
+    if (!m_data.contains(QStringLiteral("chunks")))
+        m_data.insert(QStringLiteral("chunks"), QJsonArray());
+    if (!m_data.contains(QStringLiteral("nextDocumentId")))
+        m_data.insert(QStringLiteral("nextDocumentId"), 1);
+    if (!m_data.contains(QStringLiteral("nextChunkId")))
+        m_data.insert(QStringLiteral("nextChunkId"), 1);
+    return true;
+}
+
+bool KnowledgeStore::save(QString *error) const
+{
+    QSaveFile file(filePath());
+    if (!file.open(QIODevice::WriteOnly)) {
+        if (error)
+            *error = file.errorString();
+        return false;
+    }
+    file.write(QJsonDocument(m_data).toJson(QJsonDocument::Indented));
+    if (!file.commit()) {
+        if (error)
+            *error = file.errorString();
+        return false;
     }
     return true;
 }
@@ -122,179 +133,175 @@ qint64 KnowledgeStore::addDocument(const QString &title,
                                    const QString &status,
                                    QString *error)
 {
-    QSqlDatabase db = database();
-    if (!db.transaction()) {
-        if (error)
-            *error = db.lastError().text();
-        return -1;
-    }
+    const qint64 documentId = m_data.value(QStringLiteral("nextDocumentId")).toVariant().toLongLong();
+    qint64 nextChunkId = m_data.value(QStringLiteral("nextChunkId")).toVariant().toLongLong();
 
-    QSqlQuery query(db);
-    query.prepare(QStringLiteral("INSERT INTO knowledge_documents("
-                                 "title, path, format, content, character_count, chunk_count, status, created_at) "
-                                 "VALUES(:title, :path, :format, :content, :character_count, :chunk_count, :status, :created)"));
-    query.bindValue(QStringLiteral(":title"), title);
-    query.bindValue(QStringLiteral(":path"), path);
-    query.bindValue(QStringLiteral(":format"), format);
-    query.bindValue(QStringLiteral(":content"), content);
-    query.bindValue(QStringLiteral(":character_count"), content.size());
-    query.bindValue(QStringLiteral(":chunk_count"), chunks.size());
-    query.bindValue(QStringLiteral(":status"), status);
-    query.bindValue(QStringLiteral(":created"), QDateTime::currentDateTime().toString(Qt::ISODate));
-    if (!query.exec()) {
-        db.rollback();
-        if (error)
-            *error = query.lastError().text();
-        return -1;
-    }
-    const qint64 documentId = query.lastInsertId().toLongLong();
+    QJsonArray documents = m_data.value(QStringLiteral("documents")).toArray();
+    QJsonObject document;
+    document.insert(QStringLiteral("id"), documentId);
+    document.insert(QStringLiteral("title"), title);
+    document.insert(QStringLiteral("path"), path);
+    document.insert(QStringLiteral("format"), format);
+    document.insert(QStringLiteral("content"), content);
+    document.insert(QStringLiteral("character_count"), content.size());
+    document.insert(QStringLiteral("chunk_count"), chunks.size());
+    document.insert(QStringLiteral("status"), status);
+    document.insert(QStringLiteral("created_at"), QDateTime::currentDateTime().toString(Qt::ISODate));
+    documents.append(document);
 
-    QSqlQuery chunkQuery(db);
-    chunkQuery.prepare(QStringLiteral("INSERT INTO knowledge_chunks(document_id, chunk_index, text, vector_json) "
-                                      "VALUES(:document_id, :chunk_index, :text, :vector_json)"));
+    QJsonArray chunkArray = m_data.value(QStringLiteral("chunks")).toArray();
     for (int i = 0; i < chunks.size(); ++i) {
-        chunkQuery.bindValue(QStringLiteral(":document_id"), documentId);
-        chunkQuery.bindValue(QStringLiteral(":chunk_index"), i);
-        chunkQuery.bindValue(QStringLiteral(":text"), chunks.at(i));
-        chunkQuery.bindValue(QStringLiteral(":vector_json"), QVariant());
-        if (!chunkQuery.exec()) {
-            db.rollback();
-            if (error)
-                *error = chunkQuery.lastError().text();
-            return -1;
-        }
+        QJsonObject chunk;
+        chunk.insert(QStringLiteral("id"), nextChunkId);
+        chunk.insert(QStringLiteral("document_id"), documentId);
+        chunk.insert(QStringLiteral("chunk_index"), i);
+        chunk.insert(QStringLiteral("text"), chunks.at(i));
+        chunk.insert(QStringLiteral("vector_json"), QString());
+        chunkArray.append(chunk);
+        ++nextChunkId;
     }
 
-    if (!db.commit()) {
-        if (error)
-            *error = db.lastError().text();
+    m_data.insert(QStringLiteral("documents"), documents);
+    m_data.insert(QStringLiteral("chunks"), chunkArray);
+    m_data.insert(QStringLiteral("nextDocumentId"), documentId + 1);
+    m_data.insert(QStringLiteral("nextChunkId"), nextChunkId);
+    if (!save(error))
         return -1;
-    }
     return documentId;
 }
 
 bool KnowledgeStore::deleteDocument(qint64 documentId, QString *error)
 {
-    QSqlQuery query(database());
-    query.prepare(QStringLiteral("DELETE FROM knowledge_documents WHERE id = :id"));
-    query.bindValue(QStringLiteral(":id"), documentId);
-    if (!query.exec()) {
-        if (error)
-            *error = query.lastError().text();
-        return false;
+    QJsonArray documents = m_data.value(QStringLiteral("documents")).toArray();
+    QJsonArray filteredDocuments;
+    for (const QJsonValue &value : documents) {
+        QJsonObject object = value.toObject();
+        if (object.value(QStringLiteral("id")).toVariant().toLongLong() != documentId)
+            filteredDocuments.append(object);
     }
-    return true;
+
+    QJsonArray chunks = m_data.value(QStringLiteral("chunks")).toArray();
+    QJsonArray filteredChunks;
+    for (const QJsonValue &value : chunks) {
+        QJsonObject object = value.toObject();
+        if (object.value(QStringLiteral("document_id")).toVariant().toLongLong() != documentId)
+            filteredChunks.append(object);
+    }
+    m_data.insert(QStringLiteral("documents"), filteredDocuments);
+    m_data.insert(QStringLiteral("chunks"), filteredChunks);
+    return save(error);
 }
 
 QList<KnowledgeDocument> KnowledgeStore::documents(QString *error) const
 {
+    Q_UNUSED(error)
     QList<KnowledgeDocument> result;
-    QSqlQuery query(database());
-    if (!query.exec(QStringLiteral("SELECT id, title, path, format, character_count, chunk_count, status, created_at "
-                                   "FROM knowledge_documents ORDER BY created_at DESC"))) {
-        if (error)
-            *error = query.lastError().text();
-        return result;
-    }
-    while (query.next()) {
+    const QJsonArray documents = m_data.value(QStringLiteral("documents")).toArray();
+    for (const QJsonValue &value : documents) {
+        const QJsonObject object = value.toObject();
         KnowledgeDocument doc;
-        doc.id = query.value(0).toLongLong();
-        doc.title = query.value(1).toString();
-        doc.path = query.value(2).toString();
-        doc.format = query.value(3).toString();
-        doc.characterCount = query.value(4).toInt();
-        doc.chunkCount = query.value(5).toInt();
-        doc.status = query.value(6).toString();
-        doc.createdAt = QDateTime::fromString(query.value(7).toString(), Qt::ISODate);
+        doc.id = toLongLong(object.value(QStringLiteral("id")));
+        doc.title = object.value(QStringLiteral("title")).toString();
+        doc.path = object.value(QStringLiteral("path")).toString();
+        doc.format = object.value(QStringLiteral("format")).toString();
+        doc.characterCount = object.value(QStringLiteral("character_count")).toInt();
+        doc.chunkCount = object.value(QStringLiteral("chunk_count")).toInt();
+        doc.status = object.value(QStringLiteral("status")).toString();
+        doc.createdAt = QDateTime::fromString(object.value(QStringLiteral("created_at")).toString(), Qt::ISODate);
         result.append(doc);
     }
+    std::sort(result.begin(), result.end(), [](const KnowledgeDocument &a, const KnowledgeDocument &b) {
+        return a.createdAt > b.createdAt;
+    });
     return result;
 }
 
 QList<KnowledgeChunk> KnowledgeStore::chunksForDocument(qint64 documentId, QString *error) const
 {
+    Q_UNUSED(error)
     QList<KnowledgeChunk> result;
-    QSqlQuery query(database());
-    query.prepare(QStringLiteral("SELECT c.id, c.document_id, d.title, c.chunk_index, c.text, c.vector_json "
-                                 "FROM knowledge_chunks c "
-                                 "JOIN knowledge_documents d ON d.id = c.document_id "
-                                 "WHERE c.document_id = :id ORDER BY c.chunk_index ASC"));
-    query.bindValue(QStringLiteral(":id"), documentId);
-    if (!query.exec()) {
-        if (error)
-            *error = query.lastError().text();
-        return result;
-    }
-    while (query.next()) {
+    const QJsonArray documents = m_data.value(QStringLiteral("documents")).toArray();
+    const QString title = documentTitle(documents, documentId);
+    const QJsonArray chunks = m_data.value(QStringLiteral("chunks")).toArray();
+    for (const QJsonValue &value : chunks) {
+        const QJsonObject object = value.toObject();
+        if (object.value(QStringLiteral("document_id")).toVariant().toLongLong() != documentId)
+            continue;
         KnowledgeChunk chunk;
-        chunk.id = query.value(0).toLongLong();
-        chunk.documentId = query.value(1).toLongLong();
-        chunk.documentTitle = query.value(2).toString();
-        chunk.index = query.value(3).toInt();
-        chunk.text = query.value(4).toString();
-        chunk.vector = vectorFromJson(query.value(5).toString());
+        chunk.id = toLongLong(object.value(QStringLiteral("id")));
+        chunk.documentId = documentId;
+        chunk.documentTitle = title;
+        chunk.index = object.value(QStringLiteral("chunk_index")).toInt();
+        chunk.text = object.value(QStringLiteral("text")).toString();
+        chunk.vector = vectorFromJson(object.value(QStringLiteral("vector_json")).toString());
         result.append(chunk);
     }
+    std::sort(result.begin(), result.end(), [](const KnowledgeChunk &a, const KnowledgeChunk &b) {
+        return a.index < b.index;
+    });
     return result;
 }
 
 QList<KnowledgeChunk> KnowledgeStore::allChunks(QString *error) const
 {
+    Q_UNUSED(error)
     QList<KnowledgeChunk> result;
-    QSqlQuery query(database());
-    if (!query.exec(QStringLiteral("SELECT c.id, c.document_id, d.title, c.chunk_index, c.text, c.vector_json "
-                                   "FROM knowledge_chunks c "
-                                   "JOIN knowledge_documents d ON d.id = c.document_id "
-                                   "ORDER BY c.document_id ASC, c.chunk_index ASC"))) {
-        if (error)
-            *error = query.lastError().text();
-        return result;
-    }
-    while (query.next()) {
+    const QJsonArray documents = m_data.value(QStringLiteral("documents")).toArray();
+    const QJsonArray chunks = m_data.value(QStringLiteral("chunks")).toArray();
+    for (const QJsonValue &value : chunks) {
+        const QJsonObject object = value.toObject();
         KnowledgeChunk chunk;
-        chunk.id = query.value(0).toLongLong();
-        chunk.documentId = query.value(1).toLongLong();
-        chunk.documentTitle = query.value(2).toString();
-        chunk.index = query.value(3).toInt();
-        chunk.text = query.value(4).toString();
-        chunk.vector = vectorFromJson(query.value(5).toString());
+        chunk.id = toLongLong(object.value(QStringLiteral("id")));
+        chunk.documentId = toLongLong(object.value(QStringLiteral("document_id")));
+        chunk.documentTitle = documentTitle(documents, chunk.documentId);
+        chunk.index = object.value(QStringLiteral("chunk_index")).toInt();
+        chunk.text = object.value(QStringLiteral("text")).toString();
+        chunk.vector = vectorFromJson(object.value(QStringLiteral("vector_json")).toString());
         result.append(chunk);
     }
+    std::sort(result.begin(), result.end(), [](const KnowledgeChunk &a, const KnowledgeChunk &b) {
+        if (a.documentId == b.documentId)
+            return a.index < b.index;
+        return a.documentId < b.documentId;
+    });
     return result;
 }
 
 bool KnowledgeStore::updateChunkVector(qint64 chunkId, const QVector<double> &vector, QString *error)
 {
-    QSqlQuery query(database());
-    query.prepare(QStringLiteral("UPDATE knowledge_chunks SET vector_json = :vector WHERE id = :id"));
-    query.bindValue(QStringLiteral(":vector"), vectorToJson(vector));
-    query.bindValue(QStringLiteral(":id"), chunkId);
-    if (!query.exec()) {
-        if (error)
-            *error = query.lastError().text();
-        return false;
+    QJsonArray chunks = m_data.value(QStringLiteral("chunks")).toArray();
+    for (int i = 0; i < chunks.size(); ++i) {
+        QJsonObject object = chunks.at(i).toObject();
+        if (object.value(QStringLiteral("id")).toVariant().toLongLong() == chunkId) {
+            object.insert(QStringLiteral("vector_json"), vectorToJson(vector));
+            chunks.replace(i, object);
+            m_data.insert(QStringLiteral("chunks"), chunks);
+            return save(error);
+        }
     }
-    return true;
+    return false;
 }
 
 bool KnowledgeStore::updateDocumentStatus(qint64 documentId, const QString &status, QString *error)
 {
-    QSqlQuery query(database());
-    query.prepare(QStringLiteral("UPDATE knowledge_documents SET status = :status WHERE id = :id"));
-    query.bindValue(QStringLiteral(":status"), status);
-    query.bindValue(QStringLiteral(":id"), documentId);
-    if (!query.exec()) {
-        if (error)
-            *error = query.lastError().text();
-        return false;
+    QJsonArray documents = m_data.value(QStringLiteral("documents")).toArray();
+    for (int i = 0; i < documents.size(); ++i) {
+        QJsonObject object = documents.at(i).toObject();
+        if (object.value(QStringLiteral("id")).toVariant().toLongLong() == documentId) {
+            object.insert(QStringLiteral("status"), status);
+            documents.replace(i, object);
+            m_data.insert(QStringLiteral("documents"), documents);
+            return save(error);
+        }
     }
-    return true;
+    return false;
 }
 
 QList<SearchHit> KnowledgeStore::search(const QVector<double> &queryVector, int topK, QString *error) const
 {
+    Q_UNUSED(error)
     QList<SearchHit> hits;
-    const QList<KnowledgeChunk> chunks = allChunks(error);
+    const QList<KnowledgeChunk> chunks = allChunks();
     for (const KnowledgeChunk &chunk : chunks) {
         SearchHit hit;
         hit.documentId = chunk.documentId;
@@ -305,7 +312,6 @@ QList<SearchHit> KnowledgeStore::search(const QVector<double> &queryVector, int 
         hit.score = chunk.vector.isEmpty() ? 0.0 : LocalEmbedding::cosineSimilarity(queryVector, chunk.vector);
         hits.append(hit);
     }
-
     std::sort(hits.begin(), hits.end(), [](const SearchHit &a, const SearchHit &b) {
         if (qFuzzyCompare(a.score + 1.0, b.score + 1.0))
             return a.chunkId < b.chunkId;

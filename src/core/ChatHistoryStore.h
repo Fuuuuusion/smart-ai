@@ -1,8 +1,8 @@
 #pragma once
 
-#include <QList>
 #include <QDateTime>
-#include <QSqlDatabase>
+#include <QJsonObject>
+#include <QList>
 #include <QString>
 
 struct ConversationRecord
@@ -16,6 +16,7 @@ struct ConversationRecord
 struct ChatMessageRecord
 {
     qint64 id = -1;
+    qint64 conversationId = -1;
     QString role;
     QString content;
     QString imageBase64;
@@ -47,8 +48,11 @@ public:
     void setLastConversationId(qint64 id);
 
 private:
-    bool ensureSchema(QString *error);
-    QSqlDatabase database() const;
+    bool load(QString *error);
+    bool save(QString *error) const;
+    QString filePath() const;
+    QString dataDirectory() const;
 
-    QString m_connectionName = QStringLiteral("smart_ai_chat_history");
+    QJsonObject m_data;
 };
+

@@ -72,6 +72,8 @@ set(PROJECT_SOURCES
     src/core/LocalEmbedding.h
     src/core/MathParser.cpp
     src/core/MathParser.h
+    src/core/StoragePaths.cpp
+    src/core/StoragePaths.h
     resources/resources.qrc
 )
 
