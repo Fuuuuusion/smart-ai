@@ -245,10 +245,9 @@ QList<AppSettings::ProviderPreset> AppSettings::presets()
 {
     return {
         { QStringLiteral("DeepSeek"), QStringLiteral("https://api.deepseek.com"), QStringLiteral("deepseek-chat"), QStringLiteral("deepseek-chat"), QStringLiteral("text-embedding-v3"), false },
-        { QStringLiteral("Qwen / DashScope"), QStringLiteral("https://dashscope.aliyuncs.com/compatible-mode/v1"), QStringLiteral("qwen-plus"), QStringLiteral("qwen-vl-plus"), QStringLiteral("text-embedding-v3"), false },
+        { QStringLiteral("通义千问 / DashScope"), QStringLiteral("https://dashscope.aliyuncs.com/compatible-mode/v1"), QStringLiteral("qwen-plus"), QStringLiteral("qwen-vl-plus"), QStringLiteral("text-embedding-v3"), false },
         { QStringLiteral("OpenAI"), QStringLiteral("https://api.openai.com/v1"), QStringLiteral("gpt-4o-mini"), QStringLiteral("gpt-4o-mini"), QStringLiteral("text-embedding-3-small"), false },
-        { QStringLiteral("Ollama (local)"), QStringLiteral("http://localhost:11434/v1"), QStringLiteral("qwen2.5:7b"), QStringLiteral("llava:7b"), QStringLiteral("nomic-embed-text"), true },
-        { QStringLiteral("Custom"), QString(), QStringLiteral("your-model"), QStringLiteral("your-vision-model"), QStringLiteral("text-embedding-3-small"), false },
+        { QStringLiteral("Ollama（本地）"), QStringLiteral("http://localhost:11434/v1"), QStringLiteral("qwen2.5:7b"), QStringLiteral("llava:7b"), QStringLiteral("nomic-embed-text"), true },
+        { QStringLiteral("自定义"), QString(), QStringLiteral("your-model"), QStringLiteral("your-vision-model"), QStringLiteral("text-embedding-3-small"), false },
     };
 }
-

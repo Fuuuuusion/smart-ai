@@ -38,7 +38,7 @@ VisionPage::VisionPage(QWidget *parent)
         emit streamingStateChanged(false);
     });
     connect(m_api, &ApiClient::streamError, this, [this](const QString &message) {
-        m_answer = message.isEmpty() ? tr("Vision request failed.") : message;
+        m_answer = message.isEmpty() ? tr("视觉请求失败。") : message;
         m_answerBrowser->setMarkdown(m_answer);
         setBusy(false);
         emit streamingStateChanged(false);
@@ -57,11 +57,11 @@ void VisionPage::setupUi()
     imagePanel->setObjectName(QStringLiteral("Card"));
     QVBoxLayout *imageLayout = new QVBoxLayout(imagePanel);
     imageLayout->setContentsMargins(12, 12, 12, 12);
-    QLabel *imageTitle = new QLabel(tr("Image input"), imagePanel);
+    QLabel *imageTitle = new QLabel(tr("图片输入"), imagePanel);
     imageTitle->setObjectName(QStringLiteral("CardTitle"));
     imageLayout->addWidget(imageTitle);
 
-    m_imageLabel = new QLabel(tr("Drag an image here or click Upload"), imagePanel);
+    m_imageLabel = new QLabel(tr("将图片拖到这里，或点击上传图片"), imagePanel);
     m_imageLabel->setAlignment(Qt::AlignCenter);
     m_imageLabel->setMinimumSize(300, 280);
     m_imageLabel->setStyleSheet(QStringLiteral("border:1px dashed #40577f;border-radius:12px;color:#8290ad;padding:24px;"));
@@ -73,8 +73,8 @@ void VisionPage::setupUi()
     imageLayout->addWidget(m_fileLabel);
 
     QHBoxLayout *imageButtons = new QHBoxLayout;
-    m_uploadButton = new QPushButton(tr("Upload image"), imagePanel);
-    m_clearButton = new QPushButton(tr("Clear"), imagePanel);
+    m_uploadButton = new QPushButton(tr("上传图片"), imagePanel);
+    m_clearButton = new QPushButton(tr("清空"), imagePanel);
     m_clearButton->setObjectName(QStringLiteral("DangerButton"));
     imageButtons->addWidget(m_uploadButton);
     imageButtons->addWidget(m_clearButton);
@@ -84,32 +84,32 @@ void VisionPage::setupUi()
     chatPanel->setObjectName(QStringLiteral("Card"));
     QVBoxLayout *chatLayout = new QVBoxLayout(chatPanel);
     chatLayout->setContentsMargins(12, 12, 12, 12);
-    QLabel *chatTitle = new QLabel(tr("Visual understanding"), chatPanel);
+    QLabel *chatTitle = new QLabel(tr("视觉理解"), chatPanel);
     chatTitle->setObjectName(QStringLiteral("CardTitle"));
     chatLayout->addWidget(chatTitle);
 
     m_answerBrowser = new QTextBrowser(chatPanel);
     m_answerBrowser->setOpenExternalLinks(true);
-    m_answerBrowser->setPlaceholderText(tr("The model's description or answer will appear here."));
+    m_answerBrowser->setPlaceholderText(tr("模型对图片的描述或回答将显示在这里。"));
     m_answerBrowser->document()->setDefaultStyleSheet(QStringLiteral(
         "body { color:#e8edf7; } code { color:#9fc1ff; } pre { background:#0c1320; border-radius:6px; padding:8px; }"));
     chatLayout->addWidget(m_answerBrowser, 1);
 
     QHBoxLayout *promptRow = new QHBoxLayout;
     m_promptCombo = new QComboBox(chatPanel);
-    m_promptCombo->addItem(tr("Quick prompt"));
-    m_promptCombo->addItem(tr("Describe this image in detail."));
-    m_promptCombo->addItem(tr("Extract all visible text (OCR)."));
-    m_promptCombo->addItem(tr("Detect and list the main objects."));
-    m_promptCombo->addItem(tr("Explain the chart or diagram if present."));
+    m_promptCombo->addItem(tr("快捷提问"));
+    m_promptCombo->addItem(tr("请详细描述这张图片。"));
+    m_promptCombo->addItem(tr("提取图片中的所有可见文字（OCR）。"));
+    m_promptCombo->addItem(tr("检测并列出图片中的主要物体。"));
+    m_promptCombo->addItem(tr("如果图片中有图表或示意图，请解释其内容。"));
     promptRow->addWidget(m_promptCombo);
     chatLayout->addLayout(promptRow);
 
     QHBoxLayout *questionRow = new QHBoxLayout;
     m_question = new QPlainTextEdit(chatPanel);
-    m_question->setPlaceholderText(tr("Ask a question about the image…"));
+    m_question->setPlaceholderText(tr("针对这张图片提问…"));
     m_question->setMinimumHeight(64);
-    m_sendButton = new QPushButton(tr("Ask"), chatPanel);
+    m_sendButton = new QPushButton(tr("提问"), chatPanel);
     m_sendButton->setObjectName(QStringLiteral("PrimaryButton"));
     m_sendButton->setMinimumWidth(90);
     questionRow->addWidget(m_question, 1);
@@ -130,8 +130,8 @@ void VisionPage::setupUi()
 
 void VisionPage::uploadImage()
 {
-    const QString path = QFileDialog::getOpenFileName(this, tr("Select image"), QString(),
-                                                      tr("Images (*.png *.jpg *.jpeg *.bmp *.webp)"));
+    const QString path = QFileDialog::getOpenFileName(this, tr("选择图片"), QString(),
+                                                      tr("图片 (*.png *.jpg *.jpeg *.bmp *.webp)"));
     if (!path.isEmpty())
         setImagePath(path);
 }
@@ -148,7 +148,7 @@ void VisionPage::setImagePath(const QString &path)
     if (!pixmap.isNull())
         m_imageLabel->setPixmap(pixmap.scaled(m_imageLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
     else
-        m_imageLabel->setText(tr("Unable to preview this image."));
+        m_imageLabel->setText(tr("无法预览该图片。"));
     m_fileLabel->setText(QFileInfo(path).fileName());
     m_sendButton->setEnabled(!m_question->toPlainText().trimmed().isEmpty());
 }
@@ -157,7 +157,7 @@ void VisionPage::clearImage()
 {
     m_imageBase64.clear();
     m_imagePath.clear();
-    m_imageLabel->setText(tr("Drag an image here or click Upload"));
+    m_imageLabel->setText(tr("将图片拖到这里，或点击上传图片"));
     m_imageLabel->setPixmap(QPixmap());
     m_fileLabel->clear();
     m_sendButton->setEnabled(false);
@@ -183,7 +183,7 @@ QJsonArray VisionPage::buildMessages(const QString &question) const
     QJsonArray messages;
     QJsonObject system;
     system.insert(QStringLiteral("role"), QStringLiteral("system"));
-    system.insert(QStringLiteral("content"), QStringLiteral("You are a precise visual assistant. Answer based on the image."));
+    system.insert(QStringLiteral("content"), QStringLiteral("你是一个严谨的视觉助手，请基于图片内容回答问题。"));
     messages.append(system);
 
     QJsonObject user;
@@ -236,4 +236,3 @@ void VisionPage::dropEvent(QDropEvent *event)
     setImagePath(urls.first().toLocalFile());
     event->acceptProposedAction();
 }
-

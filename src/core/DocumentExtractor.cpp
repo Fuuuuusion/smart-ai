@@ -58,7 +58,7 @@ ExtractedDocument DocumentExtractor::extract(const QString &filePath, QString *e
     QFileInfo info(filePath);
     if (!info.exists()) {
         if (error)
-            *error = QStringLiteral("File does not exist.");
+            *error = QStringLiteral("文件不存在。");
         return result;
     }
 
@@ -76,7 +76,7 @@ ExtractedDocument DocumentExtractor::extract(const QString &filePath, QString *e
         result.text = decodeTextFile(file.readAll());
         result.format = suffix == QStringLiteral("md") || suffix == QStringLiteral("markdown")
                             ? QStringLiteral("Markdown")
-                            : QStringLiteral("Text");
+                            : QStringLiteral("文本");
     } else if (suffix == QStringLiteral("docx")) {
         ZipReader zip;
         if (!zip.read(filePath, error))
@@ -85,7 +85,7 @@ ExtractedDocument DocumentExtractor::extract(const QString &filePath, QString *e
         if (documentXml.isEmpty())
             return result;
         result.text = docxText(documentXml);
-        result.format = QStringLiteral("Word");
+        result.format = QStringLiteral("Word 文档");
     } else if (suffix == QStringLiteral("pdf")) {
         QFile file(filePath);
         if (!file.open(QIODevice::ReadOnly)) {
@@ -98,11 +98,10 @@ ExtractedDocument DocumentExtractor::extract(const QString &filePath, QString *e
         result.format = QStringLiteral("PDF");
     } else {
         if (error)
-            *error = QStringLiteral("Unsupported file type: .%1").arg(suffix);
+            *error = QStringLiteral("不支持的文件类型：.%1").arg(suffix);
         return result;
     }
 
     result.characterCount = result.text.size();
     return result;
 }
-

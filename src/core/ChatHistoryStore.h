@@ -30,7 +30,7 @@ public:
 
     bool init(QString *error = nullptr);
 
-    qint64 createConversation(const QString &title = QStringLiteral("New conversation"), QString *error = nullptr);
+    qint64 createConversation(const QString &title = QStringLiteral("新对话"), QString *error = nullptr);
     bool deleteConversation(qint64 conversationId, QString *error = nullptr);
     bool renameConversation(qint64 conversationId, const QString &title, QString *error = nullptr);
     bool autoTitleConversation(qint64 conversationId, const QString &firstUserMessage, QString *error = nullptr);
@@ -52,4 +52,3 @@ private:
 
     QString m_connectionName = QStringLiteral("smart_ai_chat_history");
 };
-

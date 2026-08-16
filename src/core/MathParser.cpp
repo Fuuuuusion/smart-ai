@@ -81,7 +81,7 @@ public:
                 break;
             default:
                 if (error)
-                    *error = QStringLiteral("Unsupported character: %1").arg(ch);
+                    *error = QStringLiteral("不支持的字符：%1").arg(ch);
                 return {};
             }
         }
@@ -142,7 +142,7 @@ public:
             return false;
         if (m_tokens.at(m_position).type != TokenType::End) {
             if (m_error)
-                *m_error = QStringLiteral("Unexpected token after expression.");
+                *m_error = QStringLiteral("表达式后存在多余内容。");
             return false;
         }
         return true;
@@ -177,7 +177,7 @@ private:
                 return false;
             if (op.type == TokenType::Divide && std::fabs(right) < 1e-15) {
                 if (m_error)
-                    *m_error = QStringLiteral("Division by zero.");
+                    *m_error = QStringLiteral("除数不能为零。");
                 return false;
             }
             left = op.type == TokenType::Multiply ? left * right : left / right;
@@ -233,7 +233,7 @@ private:
                 return false;
             if (consume().type != TokenType::RightParen) {
                 if (m_error)
-                    *m_error = QStringLiteral("Missing closing parenthesis.");
+                    *m_error = QStringLiteral("缺少右括号。");
                 return false;
             }
             *result = value;
@@ -256,7 +256,7 @@ private:
                     return false;
                 if (consume().type != TokenType::RightParen) {
                     if (m_error)
-                        *m_error = QStringLiteral("Missing closing parenthesis.");
+                        *m_error = QStringLiteral("缺少右括号。");
                     return false;
                 }
                 if (name == QStringLiteral("sin"))
@@ -273,17 +273,17 @@ private:
                     *result = std::log(argument);
                 else {
                     if (m_error)
-                        *m_error = QStringLiteral("Unknown function: %1").arg(name);
+                        *m_error = QStringLiteral("未知函数：%1").arg(name);
                     return false;
                 }
                 return true;
             }
             if (m_error)
-                *m_error = QStringLiteral("Unknown identifier: %1").arg(name);
+                *m_error = QStringLiteral("未知标识符：%1").arg(name);
             return false;
         }
         if (m_error)
-            *m_error = QStringLiteral("Expected a number, function, or parentheses.");
+            *m_error = QStringLiteral("应为数字、函数或括号。");
         return false;
     }
 
@@ -317,10 +317,9 @@ bool MathParser::evaluate(const QString &expression, double *result, QString *er
     }
     if (tokens.isEmpty()) {
         if (error)
-            *error = QStringLiteral("Empty expression.");
+            *error = QStringLiteral("表达式为空。");
         return false;
     }
     Parser parser(tokens);
     return parser.parse(result, error);
 }
-

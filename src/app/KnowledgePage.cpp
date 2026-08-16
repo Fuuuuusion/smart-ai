@@ -33,7 +33,7 @@ KnowledgePage::KnowledgePage(QWidget *parent)
 {
     QString error;
     if (!m_store->init(&error))
-        QMessageBox::warning(this, tr("Knowledge base"), error);
+        QMessageBox::warning(this, tr("知识库"), error);
     m_api->configureFromSettings();
     setupUi();
     refreshDocuments();
@@ -41,7 +41,7 @@ KnowledgePage::KnowledgePage(QWidget *parent)
     connect(&m_importWatcher, &QFutureWatcher<QString>::finished, this, [this]() {
         const QString message = m_importWatcher.result();
         if (!message.isEmpty())
-            QMessageBox::information(this, tr("Import"), message);
+            QMessageBox::information(this, tr("导入文档"), message);
         refreshDocuments();
         setBusy(false);
     });
@@ -70,7 +70,7 @@ KnowledgePage::KnowledgePage(QWidget *parent)
         emit streamingStateChanged(false);
     });
     connect(m_api, &ApiClient::streamError, this, [this](const QString &message) {
-        m_answer = message.isEmpty() ? tr("Knowledge request failed.") : message;
+        m_answer = message.isEmpty() ? tr("知识库请求失败。") : message;
         m_answerBrowser->setMarkdown(m_answer);
         setBusy(false);
         emit streamingStateChanged(false);
@@ -84,11 +84,11 @@ void KnowledgePage::setupUi()
     root->setSpacing(10);
 
     QHBoxLayout *toolbar = new QHBoxLayout;
-    m_importButton = new QPushButton(tr("Import documents"), this);
+    m_importButton = new QPushButton(tr("导入文档"), this);
     m_importButton->setObjectName(QStringLiteral("PrimaryButton"));
-    m_deleteButton = new QPushButton(tr("Delete selected"), this);
+    m_deleteButton = new QPushButton(tr("删除选中"), this);
     m_deleteButton->setObjectName(QStringLiteral("DangerButton"));
-    m_statusLabel = new QLabel(tr("Documents are stored locally and embedded for private retrieval."), this);
+    m_statusLabel = new QLabel(tr("文档仅保存在本地，并通过向量化用于私有知识检索。"), this);
     m_statusLabel->setObjectName(QStringLiteral("MutedLabel"));
     toolbar->addWidget(m_importButton);
     toolbar->addWidget(m_deleteButton);
@@ -97,7 +97,7 @@ void KnowledgePage::setupUi()
     root->addLayout(toolbar);
 
     m_table = new QTableWidget(0, 6, this);
-    m_table->setHorizontalHeaderLabels({ tr("Title"), tr("Format"), tr("Characters"), tr("Chunks"), tr("Status"), tr("Created") });
+    m_table->setHorizontalHeaderLabels({ tr("标题"), tr("格式"), tr("字符数"), tr("分块数"), tr("状态"), tr("创建时间") });
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
@@ -114,7 +114,7 @@ void KnowledgePage::setupUi()
     QFrame *contextPanel = new QFrame(bottom);
     contextPanel->setObjectName(QStringLiteral("Card"));
     QVBoxLayout *contextLayout = new QVBoxLayout(contextPanel);
-    QLabel *contextTitle = new QLabel(tr("Retrieved evidence"), contextPanel);
+    QLabel *contextTitle = new QLabel(tr("检索依据"), contextPanel);
     contextTitle->setObjectName(QStringLiteral("CardTitle"));
     contextLayout->addWidget(contextTitle);
     m_contextList = new QListWidget(contextPanel);
@@ -123,21 +123,21 @@ void KnowledgePage::setupUi()
     QFrame *answerPanel = new QFrame(bottom);
     answerPanel->setObjectName(QStringLiteral("Card"));
     QVBoxLayout *answerLayout = new QVBoxLayout(answerPanel);
-    QLabel *answerTitle = new QLabel(tr("Knowledge answer"), answerPanel);
+    QLabel *answerTitle = new QLabel(tr("知识库回答"), answerPanel);
     answerTitle->setObjectName(QStringLiteral("CardTitle"));
     answerLayout->addWidget(answerTitle);
     m_answerBrowser = new QTextBrowser(answerPanel);
     m_answerBrowser->setOpenExternalLinks(true);
-    m_answerBrowser->setPlaceholderText(tr("Ask a question. The answer will be grounded in your imported documents."));
+    m_answerBrowser->setPlaceholderText(tr("输入问题，回答将基于你导入的文档生成。"));
     m_answerBrowser->document()->setDefaultStyleSheet(QStringLiteral(
         "body { color:#e8edf7; } code { color:#9fc1ff; } pre { background:#0c1320; border-radius:6px; padding:8px; }"));
     answerLayout->addWidget(m_answerBrowser, 1);
 
     QHBoxLayout *questionRow = new QHBoxLayout;
     m_question = new QPlainTextEdit(answerPanel);
-    m_question->setPlaceholderText(tr("Ask about your private knowledge base…"));
+    m_question->setPlaceholderText(tr("针对你的私有知识库提问…"));
     m_question->setMinimumHeight(64);
-    m_askButton = new QPushButton(tr("Ask"), answerPanel);
+    m_askButton = new QPushButton(tr("提问"), answerPanel);
     m_askButton->setObjectName(QStringLiteral("PrimaryButton"));
     m_askButton->setMinimumWidth(90);
     questionRow->addWidget(m_question, 1);
@@ -169,19 +169,26 @@ void KnowledgePage::refreshDocuments()
         m_table->setItem(row, 1, item(doc.format));
         m_table->setItem(row, 2, item(QString::number(doc.characterCount)));
         m_table->setItem(row, 3, item(QString::number(doc.chunkCount)));
-        m_table->setItem(row, 4, item(doc.status));
+        QString status = doc.status;
+        if (status == QStringLiteral("indexing"))
+            status = tr("索引中");
+        else if (status == QStringLiteral("ready"))
+            status = tr("就绪");
+        else if (status == QStringLiteral("partial"))
+            status = tr("部分完成");
+        m_table->setItem(row, 4, item(status));
         m_table->setItem(row, 5, item(doc.createdAt.toString(QStringLiteral("yyyy-MM-dd HH:mm"))));
         m_table->item(row, 0)->setData(Qt::UserRole, doc.id);
     }
-    m_statusLabel->setText(tr("%1 documents · %2 chunks").arg(documents.size()).arg(
+    m_statusLabel->setText(tr("共 %1 个文档 · %2 个分块").arg(documents.size()).arg(
         documents.isEmpty() ? 0 : std::accumulate(documents.begin(), documents.end(), 0,
                                                   [](int sum, const KnowledgeDocument &doc) { return sum + doc.chunkCount; })));
 }
 
 void KnowledgePage::importDocuments()
 {
-    const QStringList paths = QFileDialog::getOpenFileNames(this, tr("Import documents"), QString(),
-                                                            tr("Documents (*.txt *.md *.markdown *.docx *.pdf)"));
+    const QStringList paths = QFileDialog::getOpenFileNames(this, tr("导入文档"), QString(),
+                                                            tr("文档 (*.txt *.md *.markdown *.docx *.pdf)"));
     if (paths.isEmpty())
         return;
 
@@ -197,7 +204,7 @@ void KnowledgePage::importDocuments()
     job.timeoutMs = settings->timeoutMs();
 
     setBusy(true);
-    m_statusLabel->setText(tr("Importing and embedding documents…"));
+    m_statusLabel->setText(tr("正在导入并向量化文档…"));
     m_importWatcher.setFuture(QtConcurrent::run([this, job]() { return runImportJob(job); }));
 }
 
@@ -256,11 +263,11 @@ QString KnowledgePage::runImportJob(const ImportJob &job)
 
     QString result;
     if (!summaries.isEmpty())
-        result += tr("Imported: %1").arg(summaries.join(QStringLiteral(", ")));
+        result += tr("已导入：%1").arg(summaries.join(QStringLiteral("，")));
     if (!errors.isEmpty()) {
         if (!result.isEmpty())
             result += QStringLiteral("\n\n");
-        result += tr("Skipped: %1").arg(errors.join(QStringLiteral("\n")));
+        result += tr("已跳过：%1").arg(errors.join(QStringLiteral("\n")));
     }
     return result;
 }
@@ -309,7 +316,7 @@ void KnowledgePage::askQuestion()
     if (question.isEmpty())
         return;
     if (m_store->documents().isEmpty()) {
-        QMessageBox::information(this, tr("Knowledge base"), tr("Import at least one document before asking."));
+        QMessageBox::information(this, tr("知识库"), tr("请先导入至少一个文档再提问。"));
         return;
     }
     m_lastQuestion = question;
@@ -358,7 +365,7 @@ void KnowledgePage::startRagAnswer(const QString &question, const QList<SearchHi
     QJsonObject system;
     QString context;
     if (hits.isEmpty()) {
-        context = QStringLiteral("No relevant context was retrieved.");
+        context = QStringLiteral("未检索到相关上下文。");
     } else {
         for (int i = 0; i < hits.size(); ++i) {
             const SearchHit &hit = hits.at(i);
@@ -371,8 +378,8 @@ void KnowledgePage::startRagAnswer(const QString &question, const QList<SearchHi
     }
     system.insert(QStringLiteral("role"), QStringLiteral("system"));
     system.insert(QStringLiteral("content"),
-                  QStringLiteral("You are a private knowledge assistant. Answer the user's question using the retrieved context. "
-                                 "If the context is insufficient, say so. Cite document names and chunk numbers when possible.\n\nContext:%1")
+                  QStringLiteral("你是私有知识库助手。请基于检索到的上下文回答用户问题。"
+                                 "如果上下文不足，请如实说明，并尽可能标注文档名称和分块编号。\n\n上下文：%1")
                       .arg(context));
     messages.append(system);
     QJsonObject user;
@@ -391,5 +398,5 @@ void KnowledgePage::setBusy(bool busy)
     m_deleteButton->setEnabled(!busy);
     m_question->setEnabled(!busy);
     m_askButton->setEnabled(!busy && !m_question->toPlainText().trimmed().isEmpty());
-    m_statusLabel->setText(busy ? tr("Processing…") : tr("Documents are stored locally and embedded for private retrieval."));
+    m_statusLabel->setText(busy ? tr("处理中…") : tr("文档仅保存在本地，并通过向量化用于私有知识检索。"));
 }

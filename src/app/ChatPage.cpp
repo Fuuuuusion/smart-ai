@@ -61,8 +61,8 @@ void ChatPage::setupUi()
     root->setSpacing(10);
 
     QHBoxLayout *toolbar = new QHBoxLayout;
-    m_newButton = new QPushButton(tr("＋ New chat"), this);
-    m_deleteButton = new QPushButton(tr("Delete"), this);
+    m_newButton = new QPushButton(tr("＋ 新建对话"), this);
+    m_deleteButton = new QPushButton(tr("删除"), this);
     m_deleteButton->setObjectName(QStringLiteral("DangerButton"));
     m_modelCombo = new QComboBox(this);
     m_modelCombo->setEditable(true);
@@ -75,7 +75,7 @@ void ChatPage::setupUi()
     toolbar->addWidget(m_newButton);
     toolbar->addWidget(m_deleteButton);
     toolbar->addStretch();
-    toolbar->addWidget(new QLabel(tr("Model"), this));
+    toolbar->addWidget(new QLabel(tr("模型"), this));
     toolbar->addWidget(m_modelCombo);
     root->addLayout(toolbar);
 
@@ -85,7 +85,7 @@ void ChatPage::setupUi()
     historyPanel->setObjectName(QStringLiteral("Card"));
     QVBoxLayout *historyLayout = new QVBoxLayout(historyPanel);
     historyLayout->setContentsMargins(8, 8, 8, 8);
-    QLabel *historyTitle = new QLabel(tr("Conversations"), historyPanel);
+    QLabel *historyTitle = new QLabel(tr("会话列表"), historyPanel);
     historyTitle->setObjectName(QStringLiteral("CardTitle"));
     historyLayout->addWidget(historyTitle);
     m_conversationList = new QListWidget(historyPanel);
@@ -111,11 +111,11 @@ void ChatPage::setupUi()
 
     QHBoxLayout *inputRow = new QHBoxLayout;
     m_input = new QPlainTextEdit(this);
-    m_input->setPlaceholderText(tr("Ask anything…  (drag an image here for visual input)"));
+    m_input->setPlaceholderText(tr("输入问题…（可将图片拖到此处进行视觉问答）"));
     m_input->setMinimumHeight(72);
     m_input->setMaximumHeight(150);
     m_input->setAcceptDrops(false);
-    m_sendButton = new QPushButton(tr("Send"), this);
+    m_sendButton = new QPushButton(tr("发送"), this);
     m_sendButton->setObjectName(QStringLiteral("PrimaryButton"));
     m_sendButton->setMinimumWidth(92);
     inputRow->addWidget(m_input, 1);
@@ -179,7 +179,7 @@ void ChatPage::selectConversation()
 void ChatPage::newConversation()
 {
     QString error;
-    const qint64 id = m_history->createConversation(QStringLiteral("New conversation"), &error);
+    const qint64 id = m_history->createConversation(QStringLiteral("新对话"), &error);
     if (id < 0)
         return;
     refreshConversations();
@@ -244,8 +244,8 @@ QJsonArray ChatPage::buildMessages() const
     QJsonObject system;
     system.insert(QStringLiteral("role"), QStringLiteral("system"));
     system.insert(QStringLiteral("content"),
-                  QStringLiteral("You are Smart AI, a helpful desktop assistant. "
-                                 "Answer clearly and use Markdown when it improves readability."));
+                  QStringLiteral("你是 Smart AI，一个乐于助人的桌面智能助手。"
+                                 "请清晰回答用户问题，并在合适时使用 Markdown 提高可读性。"));
     messages.append(system);
 
     const QList<ChatMessageRecord> records = m_history->messages(m_conversationId);
@@ -284,7 +284,7 @@ void ChatPage::sendMessage()
 
     if (m_conversationId <= 0) {
         QString error;
-        m_conversationId = m_history->createConversation(QStringLiteral("New conversation"), &error);
+        m_conversationId = m_history->createConversation(QStringLiteral("新对话"), &error);
         if (m_conversationId <= 0)
             return;
         refreshConversations();
@@ -325,7 +325,7 @@ void ChatPage::finishStreaming(bool success, const QString &content)
 {
     if (!m_streamingWidget)
         return;
-    const QString finalText = success ? content : (content.isEmpty() ? tr("Request failed.") : content);
+    const QString finalText = success ? content : (content.isEmpty() ? tr("请求失败。") : content);
     m_streamingWidget->setContent(finalText);
     m_streamingWidget->setStreaming(false);
     if (success)
@@ -387,7 +387,7 @@ void ChatPage::dropEvent(QDropEvent *event)
             suffix == QStringLiteral("jpeg") || suffix == QStringLiteral("bmp") ||
             suffix == QStringLiteral("webp")) {
             m_attachedImageBase64 = loadImageAsBase64(path);
-            m_attachmentLabel->setText(tr("📎 %1 attached · <a href=\"clear\">remove</a>").arg(QFileInfo(path).fileName()));
+            m_attachmentLabel->setText(tr("📎 已添加 %1 · <a href=\"clear\">移除</a>").arg(QFileInfo(path).fileName()));
             m_attachmentLabel->setVisible(true);
             event->acceptProposedAction();
             return;

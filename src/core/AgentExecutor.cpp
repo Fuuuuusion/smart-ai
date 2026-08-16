@@ -44,10 +44,9 @@ AgentExecutionResult AgentExecutor::run(const QString &userMessage,
     QJsonObject system;
     system.insert(QStringLiteral("role"), QStringLiteral("system"));
     system.insert(QStringLiteral("content"),
-                  QStringLiteral("You are Smart AI, a precise desktop assistant. "
-                                 "Use tools when they help answer the user. "
-                                 "When a tool returns raw facts, summarize them clearly and cite the tool result. "
-                                 "Do not invent tool outputs."));
+                  QStringLiteral("你是 Smart AI，一个严谨的桌面智能助手。"
+                                 "在工具能帮助回答用户时主动调用工具；"
+                                 "当工具返回事实时，请清晰总结并引用工具结果，不要编造输出。"));
     messages.append(system);
     messages.append(messageObject(QStringLiteral("user"), userMessage));
 
@@ -58,13 +57,13 @@ AgentExecutionResult AgentExecutor::run(const QString &userMessage,
         QString chatError;
         const QJsonObject response = client.chatComplete(messages, config.chatModel, tools, false, &chatError);
         if (response.isEmpty()) {
-            result.error = chatError.isEmpty() ? QStringLiteral("The model returned an empty response.") : chatError;
+            result.error = chatError.isEmpty() ? QStringLiteral("模型返回了空响应。") : chatError;
             return result;
         }
 
         const QJsonArray choices = response.value(QStringLiteral("choices")).toArray();
         if (choices.isEmpty()) {
-            result.error = QStringLiteral("The model response did not contain choices.");
+            result.error = QStringLiteral("模型响应中没有 choices 字段。");
             return result;
         }
         const QJsonObject message = choices.first().toObject().value(QStringLiteral("message")).toObject();
@@ -91,7 +90,7 @@ AgentExecutionResult AgentExecutor::run(const QString &userMessage,
             const QJsonObject arguments = QJsonDocument::fromJson(function.value(QStringLiteral("arguments")).toString().toUtf8()).object();
 
             AgentTraceStep step;
-            step.label = QStringLiteral("Tool call: %1").arg(name);
+            step.label = QStringLiteral("工具调用：%1").arg(name);
             step.detail = QJsonDocument(arguments).toJson(QJsonDocument::Indented);
             result.trace.append(step);
 
@@ -109,7 +108,7 @@ AgentExecutionResult AgentExecutor::run(const QString &userMessage,
             const ToolResult toolResult = ToolRegistry::execute(name, arguments, context, &toolError);
 
             AgentTraceStep resultStep;
-            resultStep.label = QStringLiteral("Result: %1").arg(name);
+            resultStep.label = QStringLiteral("工具结果：%1").arg(name);
             resultStep.detail = toolResult.ok ? toolResult.content : (toolError.isEmpty() ? toolResult.content : toolError);
             result.trace.append(resultStep);
 
@@ -117,20 +116,20 @@ AgentExecutionResult AgentExecutor::run(const QString &userMessage,
             toolMessage.insert(QStringLiteral("role"), QStringLiteral("tool"));
             toolMessage.insert(QStringLiteral("tool_call_id"), id);
             toolMessage.insert(QStringLiteral("content"), toolResult.ok ? toolResult.content
-                                                                       : QStringLiteral("Error: %1").arg(toolError.isEmpty() ? toolResult.content : toolError));
+                                                                       : QStringLiteral("错误：%1").arg(toolError.isEmpty() ? toolResult.content : toolError));
             messages.append(toolMessage);
         }
     }
 
     if (finalAnswer.isEmpty()) {
-        result.error = QStringLiteral("The agent did not produce a final answer after several tool rounds.");
+        result.error = QStringLiteral("智能体经过多轮工具调用后仍未生成最终回答。");
         return result;
     }
 
     result.ok = true;
     result.finalAnswer = finalAnswer;
     AgentTraceStep finalStep;
-    finalStep.label = QStringLiteral("Final answer");
+    finalStep.label = QStringLiteral("最终回答");
     finalStep.detail = finalAnswer;
     result.trace.append(finalStep);
     if (error)
@@ -158,6 +157,6 @@ QVector<double> AgentExecutor::queryVector(const QString &query,
     }
 
     if (error)
-        *error = QStringLiteral("Remote embedding failed (%1); using local fallback.").arg(embeddingError);
+        *error = QStringLiteral("远程向量化失败（%1），已使用本地回退方案。").arg(embeddingError);
     return LocalEmbedding::embed(query);
 }

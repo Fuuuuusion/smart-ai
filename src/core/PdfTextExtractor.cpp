@@ -12,7 +12,7 @@ QByteArray inflateBytes(const QByteArray &compressed, QString *error)
     memset(&stream, 0, sizeof(stream));
     if (inflateInit(&stream) != Z_OK) {
         if (error)
-            *error = QStringLiteral("Unable to initialize zlib.");
+            *error = QStringLiteral("无法初始化 zlib。");
         return {};
     }
 
@@ -32,7 +32,7 @@ QByteArray inflateBytes(const QByteArray &compressed, QString *error)
             break;
         if (result != Z_OK) {
             if (error)
-                *error = QStringLiteral("Unable to decompress PDF stream.");
+                *error = QStringLiteral("无法解压 PDF 数据流。");
             inflateEnd(&stream);
             return {};
         }
@@ -60,7 +60,7 @@ QString PdfTextExtractor::extract(const QByteArray &pdfData, QString *error) con
 {
     if (pdfData.isEmpty()) {
         if (error)
-            *error = QStringLiteral("PDF data is empty.");
+            *error = QStringLiteral("PDF 数据为空。");
         return {};
     }
 

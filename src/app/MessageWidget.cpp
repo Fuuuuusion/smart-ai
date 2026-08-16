@@ -27,7 +27,7 @@ MessageWidget::MessageWidget(const QString &role, QWidget *parent)
     m_imageLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(m_imageLabel);
 
-    QLabel *author = new QLabel(role == QStringLiteral("user") ? tr("You") : tr("Smart AI"), bubble);
+    QLabel *author = new QLabel(role == QStringLiteral("user") ? tr("你") : tr("智能 AI"), bubble);
     author->setStyleSheet(role == QStringLiteral("user")
                               ? QStringLiteral("color:#d7e4ff;font-weight:600;")
                               : QStringLiteral("color:#9fc1ff;font-weight:600;"));
@@ -79,7 +79,7 @@ void MessageWidget::setImageBase64(const QString &base64)
     QPixmap pixmap;
     pixmap.loadFromData(QByteArray::fromBase64(base64.toLatin1()));
     if (pixmap.isNull()) {
-        m_imageLabel->setText(tr("Image preview unavailable"));
+        m_imageLabel->setText(tr("无法预览图片"));
         m_imageLabel->setVisible(true);
         return;
     }
@@ -101,4 +101,3 @@ QTextBrowser *MessageWidget::contentBrowser() const
 {
     return m_browser;
 }
-

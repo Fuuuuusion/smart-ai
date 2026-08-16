@@ -84,7 +84,7 @@ bool ChatHistoryStore::ensureSchema(QString *error)
     QSqlQuery countQuery(db);
     if (countQuery.exec(QStringLiteral("SELECT COUNT(*) FROM conversations")) && countQuery.next()) {
         if (countQuery.value(0).toLongLong() == 0)
-            createConversation(QStringLiteral("New conversation"), error);
+            createConversation(QStringLiteral("新对话"), error);
     }
     return true;
 }

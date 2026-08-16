@@ -64,7 +64,7 @@ bool ZipReader::read(const QString &filePath, QString *error)
     m_entries.clear();
 
     if (m_raw.size() < 22) {
-        m_error = QStringLiteral("File is too small to be a ZIP archive.");
+        m_error = QStringLiteral("文件太小，不是有效的 ZIP 压缩包。");
         if (error)
             *error = m_error;
         return false;
@@ -79,7 +79,7 @@ bool ZipReader::read(const QString &filePath, QString *error)
         }
     }
     if (eocd < 0) {
-        m_error = QStringLiteral("End of central directory record was not found.");
+        m_error = QStringLiteral("未找到 ZIP 中央目录结束记录。");
         if (error)
             *error = m_error;
         return false;
@@ -123,14 +123,14 @@ QByteArray ZipReader::fileData(const QString &entryName, QString *error) const
     }
     if (!match) {
         if (error)
-            *error = QStringLiteral("Entry not found: %1").arg(entryName);
+            *error = QStringLiteral("未找到压缩包条目：%1").arg(entryName);
         return {};
     }
 
     const int localOffset = static_cast<int>(match->localHeaderOffset);
     if (localOffset + 30 > m_raw.size() || readU32(m_raw, localOffset) != 0x04034b50) {
         if (error)
-            *error = QStringLiteral("Invalid local file header for %1").arg(entryName);
+            *error = QStringLiteral("%1 的本地文件头无效。").arg(entryName);
         return {};
     }
     const quint16 nameLength = readU16(m_raw, localOffset + 26);
@@ -138,7 +138,7 @@ QByteArray ZipReader::fileData(const QString &entryName, QString *error) const
     const int dataOffset = localOffset + 30 + nameLength + extraLength;
     if (dataOffset + match->compressedSize > static_cast<quint32>(m_raw.size())) {
         if (error)
-            *error = QStringLiteral("Compressed data for %1 is truncated.").arg(entryName);
+            *error = QStringLiteral("%1 的压缩数据不完整。").arg(entryName);
         return {};
     }
 
@@ -149,14 +149,14 @@ QByteArray ZipReader::fileData(const QString &entryName, QString *error) const
         QByteArray out;
         if (!inflateData(compressed, match->uncompressedSize, out)) {
             if (error)
-                *error = QStringLiteral("Unable to decompress %1.").arg(entryName);
+                *error = QStringLiteral("无法解压 %1。").arg(entryName);
             return {};
         }
         return out;
     }
 
     if (error)
-        *error = QStringLiteral("Unsupported compression method %1.").arg(match->compressionMethod);
+        *error = QStringLiteral("不支持的压缩方式：%1。").arg(match->compressionMethod);
     return {};
 }
 
@@ -164,4 +164,3 @@ QList<ZipEntry> ZipReader::entries() const
 {
     return m_entries;
 }
-

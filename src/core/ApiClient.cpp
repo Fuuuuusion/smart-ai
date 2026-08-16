@@ -105,7 +105,7 @@ void ApiClient::startChatStream(const QJsonArray &messages,
     }
 
     if (m_chatBaseUrl.isEmpty()) {
-        emit streamError(tr("Chat API base URL is not configured."));
+        emit streamError(tr("聊天接口地址未配置。"));
         return;
     }
 
@@ -226,7 +226,7 @@ QJsonObject ApiClient::chatComplete(const QJsonArray &messages,
 {
     if (m_chatBaseUrl.isEmpty()) {
         if (errorMessage)
-            *errorMessage = tr("Chat API base URL is not configured.");
+            *errorMessage = tr("聊天接口地址未配置。");
         return {};
     }
 
@@ -244,7 +244,7 @@ QVector<double> ApiClient::embedding(const QString &text, const QString &model, 
 {
     if (m_embeddingBaseUrl.isEmpty()) {
         if (errorMessage)
-            *errorMessage = tr("Embedding API base URL is not configured.");
+            *errorMessage = tr("向量化接口地址未配置。");
         return {};
     }
 
@@ -307,7 +307,7 @@ QJsonObject ApiClient::postJsonSync(const QUrl &url,
     if (networkError != QNetworkReply::NoError) {
         if (errorMessage)
             *errorMessage = networkError == QNetworkReply::OperationCanceledError
-                                ? tr("Request timed out.")
+                                ? tr("请求超时。")
                                 : reply->errorString();
         return {};
     }

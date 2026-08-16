@@ -80,12 +80,12 @@ QJsonObject httpGetJson(const QUrl &url, QString *error)
 
     if (networkError != QNetworkReply::NoError) {
         if (error)
-            *error = networkError == QNetworkReply::OperationCanceledError ? QStringLiteral("Tool request timed out.") : errorString;
+            *error = networkError == QNetworkReply::OperationCanceledError ? QStringLiteral("工具请求超时。") : errorString;
         return {};
     }
     if (status >= 400) {
         if (error)
-            *error = QStringLiteral("Tool request failed with HTTP %1.").arg(status);
+            *error = QStringLiteral("工具请求失败，HTTP 状态码 %1。").arg(status);
         return {};
     }
     return QJsonDocument::fromJson(data).object();
@@ -120,12 +120,12 @@ QByteArray httpGetBytes(const QUrl &url, QString *error)
 
     if (networkError != QNetworkReply::NoError) {
         if (error)
-            *error = networkError == QNetworkReply::OperationCanceledError ? QStringLiteral("Tool request timed out.") : errorString;
+            *error = networkError == QNetworkReply::OperationCanceledError ? QStringLiteral("工具请求超时。") : errorString;
         return {};
     }
     if (status >= 400) {
         if (error)
-            *error = QStringLiteral("Tool request failed with HTTP %1.").arg(status);
+            *error = QStringLiteral("工具请求失败，HTTP 状态码 %1。").arg(status);
         return {};
     }
     return data;
@@ -142,37 +142,37 @@ QString weatherCodeDescription(int code)
 {
     switch (code) {
     case 0:
-        return QStringLiteral("Clear sky");
+        return QStringLiteral("晴");
     case 1:
     case 2:
-        return QStringLiteral("Partly cloudy");
+        return QStringLiteral("多云");
     case 3:
-        return QStringLiteral("Overcast");
+        return QStringLiteral("阴天");
     case 45:
     case 48:
-        return QStringLiteral("Fog");
+        return QStringLiteral("雾");
     case 51:
     case 53:
     case 55:
-        return QStringLiteral("Drizzle");
+        return QStringLiteral("毛毛雨");
     case 61:
     case 63:
     case 65:
-        return QStringLiteral("Rain");
+        return QStringLiteral("雨");
     case 71:
     case 73:
     case 75:
-        return QStringLiteral("Snow");
+        return QStringLiteral("雪");
     case 80:
     case 81:
     case 82:
-        return QStringLiteral("Rain showers");
+        return QStringLiteral("阵雨");
     case 95:
     case 96:
     case 99:
-        return QStringLiteral("Thunderstorm");
+        return QStringLiteral("雷暴");
     default:
-        return QStringLiteral("Unknown");
+        return QStringLiteral("未知");
     }
 }
 }
@@ -182,33 +182,33 @@ QJsonArray ToolRegistry::toolDefinitions()
     QJsonArray tools;
 
     QJsonObject calculatorProperties;
-    calculatorProperties.insert(QStringLiteral("expression"), property(QStringLiteral("string"), QStringLiteral("Mathematical expression, for example: (3+5)*2 or sqrt(16)")));
+    calculatorProperties.insert(QStringLiteral("expression"), property(QStringLiteral("string"), QStringLiteral("数学表达式，例如：(3+5)*2 或 sqrt(16)")));
     tools.append(functionObject(QStringLiteral("calculator"),
-                                QStringLiteral("Evaluate a safe mathematical expression. Supports + - * / ^ parentheses and sin/cos/tan/sqrt/log/abs."),
+                                QStringLiteral("计算安全数学表达式。支持 + - * / ^ 括号以及 sin/cos/tan/sqrt/log/abs。"),
                                 stringParameters(calculatorProperties, { QStringLiteral("expression") })));
 
     QJsonObject weatherProperties;
-    weatherProperties.insert(QStringLiteral("location"), property(QStringLiteral("string"), QStringLiteral("City name, for example: Beijing or Shanghai")));
+    weatherProperties.insert(QStringLiteral("location"), property(QStringLiteral("string"), QStringLiteral("城市名称，例如：北京或上海")));
     tools.append(functionObject(QStringLiteral("weather"),
-                                QStringLiteral("Get current weather for a city using Open-Meteo."),
+                                QStringLiteral("使用 Open-Meteo 查询指定城市的当前天气。"),
                                 stringParameters(weatherProperties, { QStringLiteral("location") })));
 
     QJsonObject searchProperties;
-    searchProperties.insert(QStringLiteral("query"), property(QStringLiteral("string"), QStringLiteral("Web search query")));
+    searchProperties.insert(QStringLiteral("query"), property(QStringLiteral("string"), QStringLiteral("网络搜索关键词")));
     tools.append(functionObject(QStringLiteral("web_search"),
-                                QStringLiteral("Search the web and return concise result summaries."),
+                                QStringLiteral("搜索网络并返回简洁的结果摘要。"),
                                 stringParameters(searchProperties, { QStringLiteral("query") })));
 
     QJsonObject knowledgeProperties;
-    knowledgeProperties.insert(QStringLiteral("query"), property(QStringLiteral("string"), QStringLiteral("Question to search in the local knowledge base")));
+    knowledgeProperties.insert(QStringLiteral("query"), property(QStringLiteral("string"), QStringLiteral("需要在本地知识库中检索的问题")));
     tools.append(functionObject(QStringLiteral("knowledge_search"),
-                                QStringLiteral("Retrieve relevant private documents from the local knowledge base."),
+                                QStringLiteral("从本地知识库中检索相关的私有文档片段。"),
                                 stringParameters(knowledgeProperties, { QStringLiteral("query") })));
 
     QJsonObject timeProperties;
-    timeProperties.insert(QStringLiteral("timezone"), property(QStringLiteral("string"), QStringLiteral("Optional IANA timezone, for example Asia/Shanghai")));
+    timeProperties.insert(QStringLiteral("timezone"), property(QStringLiteral("string"), QStringLiteral("可选 IANA 时区，例如 Asia/Shanghai")));
     tools.append(functionObject(QStringLiteral("current_time"),
-                                QStringLiteral("Get the current date and time."),
+                                QStringLiteral("获取当前日期和时间。"),
                                 stringParameters(timeProperties, {})));
 
     return tools;
@@ -237,11 +237,11 @@ ToolResult ToolRegistry::execute(const QString &name,
     if (name == QStringLiteral("current_time")) {
         QString timezone = arguments.value(QStringLiteral("timezone")).toString();
         QDateTime now = timezone.isEmpty() ? QDateTime::currentDateTime() : QDateTime::currentDateTime();
-        result.content = QStringLiteral("Current time: %1\nEpoch seconds: %2")
+        result.content = QStringLiteral("当前时间：%1\n时间戳（秒）：%2")
                              .arg(now.toString(Qt::ISODateWithMs))
                              .arg(now.toSecsSinceEpoch());
         if (!timezone.isEmpty())
-            result.content += QStringLiteral("\nRequested timezone: %1").arg(timezone);
+            result.content += QStringLiteral("\n请求时区：%1").arg(timezone);
         result.ok = true;
         return result;
     }
@@ -260,7 +260,7 @@ ToolResult ToolRegistry::execute(const QString &name,
         const QJsonObject geocode = httpGetJson(geocodeUrl, &httpError);
         if (geocode.isEmpty() || !geocode.contains(QStringLiteral("results")) || geocode.value(QStringLiteral("results")).toArray().isEmpty()) {
             if (error)
-                *error = httpError.isEmpty() ? QStringLiteral("Location not found.") : httpError;
+                *error = httpError.isEmpty() ? QStringLiteral("未找到该地点。") : httpError;
             return result;
         }
         const QJsonObject place = geocode.value(QStringLiteral("results")).toArray().first().toObject();
@@ -284,7 +284,7 @@ ToolResult ToolRegistry::execute(const QString &name,
         }
         const QJsonObject current = weather.value(QStringLiteral("current")).toObject();
         const int code = current.value(QStringLiteral("weather_code")).toInt();
-        result.content = QStringLiteral("%1 weather:\nTemperature: %2°C\nFeels like: %3°C\nHumidity: %4%%\nWind speed: %5 km/h\nCondition: %6")
+        result.content = QStringLiteral("%1 当前天气：\n温度：%2°C\n体感温度：%3°C\n湿度：%4%%\n风速：%5 km/h\n天气状况：%6")
                              .arg(placeName)
                              .arg(current.value(QStringLiteral("temperature_2m")).toDouble())
                              .arg(current.value(QStringLiteral("apparent_temperature")).toDouble())
@@ -331,7 +331,7 @@ ToolResult ToolRegistry::execute(const QString &name,
             lines.append(QStringLiteral("%1. %2\n   %3\n   %4").arg(++count).arg(title, link, snippet));
         }
         if (lines.isEmpty()) {
-            result.content = QStringLiteral("No useful search results were returned.");
+            result.content = QStringLiteral("没有找到有用的搜索结果。");
             result.ok = true;
         } else {
             result.content = lines.join('\n');
@@ -342,7 +342,7 @@ ToolResult ToolRegistry::execute(const QString &name,
 
     if (name == QStringLiteral("knowledge_search")) {
         if (!context.knowledgeStore) {
-            result.content = QStringLiteral("The local knowledge base is unavailable.");
+            result.content = QStringLiteral("本地知识库不可用。");
             result.ok = false;
             return result;
         }
@@ -355,13 +355,13 @@ ToolResult ToolRegistry::execute(const QString &name,
             return result;
         }
         if (hits.isEmpty()) {
-            result.content = QStringLiteral("No relevant knowledge base chunks were found.");
+            result.content = QStringLiteral("未找到相关知识库片段。");
             result.ok = true;
             return result;
         }
         QStringList lines;
         for (const SearchHit &hit : hits) {
-            lines.append(QStringLiteral("[%1 · chunk %2 · score %3]\n%4")
+            lines.append(QStringLiteral("[%1 · 分块 %2 · 相似度 %3]\n%4")
                              .arg(hit.documentTitle)
                              .arg(hit.chunkIndex + 1)
                              .arg(hit.score, 0, 'f', 3)
@@ -373,6 +373,6 @@ ToolResult ToolRegistry::execute(const QString &name,
     }
 
     if (error)
-        *error = QStringLiteral("Unknown tool: %1").arg(name);
+        *error = QStringLiteral("未知工具：%1").arg(name);
     return result;
 }

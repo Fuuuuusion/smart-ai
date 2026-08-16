@@ -40,7 +40,7 @@ MainWindow::MainWindow(QWidget *parent)
         QMessageBox::warning(this, tr("Smart AI"), historyError);
 
     setupUi();
-    statusBar()->showMessage(tr("Ready"));
+    statusBar()->showMessage(tr("就绪"));
     switchPage(0);
 }
 
@@ -64,20 +64,20 @@ void MainWindow::setupUi()
     QLabel *brand = new QLabel(tr("Smart AI"), sidebar);
     brand->setObjectName(QStringLiteral("BrandTitle"));
     sidebarLayout->addWidget(brand);
-    QLabel *subtitle = new QLabel(tr("Multimodal desktop assistant"), sidebar);
+    QLabel *subtitle = new QLabel(tr("多模态桌面助手"), sidebar);
     subtitle->setObjectName(QStringLiteral("BrandSubtitle"));
     sidebarLayout->addWidget(subtitle);
     sidebarLayout->addSpacing(20);
 
     m_navGroup = new QButtonGroup(this);
     m_navGroup->setExclusive(true);
-    sidebarLayout->addWidget(createNavButton(tr("💬  Chat"), 0));
-    sidebarLayout->addWidget(createNavButton(tr("🖼️  Vision"), 1));
-    sidebarLayout->addWidget(createNavButton(tr("📚  Knowledge"), 2));
-    sidebarLayout->addWidget(createNavButton(tr("🤖  Agent"), 3));
+    sidebarLayout->addWidget(createNavButton(tr("💬  对话"), 0));
+    sidebarLayout->addWidget(createNavButton(tr("🖼️  图像理解"), 1));
+    sidebarLayout->addWidget(createNavButton(tr("📚  知识库"), 2));
+    sidebarLayout->addWidget(createNavButton(tr("🤖  智能体"), 3));
     sidebarLayout->addStretch();
 
-    QPushButton *settingsButton = new QPushButton(tr("⚙  Settings"), sidebar);
+    QPushButton *settingsButton = new QPushButton(tr("⚙  设置"), sidebar);
     connect(settingsButton, &QPushButton::clicked, this, &MainWindow::openSettings);
     sidebarLayout->addWidget(settingsButton);
 
@@ -142,7 +142,7 @@ void MainWindow::switchPage(int index)
     if (index < 0 || index >= m_stack->count())
         return;
     m_stack->setCurrentIndex(index);
-    const QStringList titles = { tr("Chat"), tr("Image Understanding"), tr("Knowledge Base"), tr("Agent Tools") };
+    const QStringList titles = { tr("对话"), tr("图像理解"), tr("知识库"), tr("智能体") };
     if (index < titles.size())
         m_pageTitle->setText(titles.at(index));
     if (QAbstractButton *button = m_navGroup->button(index))
@@ -159,5 +159,12 @@ void MainWindow::openSettings()
 void MainWindow::updateModelLabel()
 {
     AppSettings *settings = AppSettings::instance();
-    m_modelLabel->setText(QStringLiteral("%1 · %2").arg(settings->providerPreset(), settings->chatModel()));
+    QString preset = settings->providerPreset();
+    if (preset == QStringLiteral("Qwen / DashScope"))
+        preset = QStringLiteral("通义千问 / DashScope");
+    else if (preset == QStringLiteral("Ollama (local)"))
+        preset = QStringLiteral("Ollama（本地）");
+    else if (preset == QStringLiteral("Custom"))
+        preset = QStringLiteral("自定义");
+    m_modelLabel->setText(QStringLiteral("%1 · %2").arg(preset, settings->chatModel()));
 }
